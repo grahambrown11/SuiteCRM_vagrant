@@ -18,8 +18,9 @@ apt-get update &> /dev/null
 apt-get -yq upgrade
 debconf-set-selections /provision/mysql-debconf-selections
 apt-get -y install zip unzip patch curl elinks libc-client2007e libc-client2007e-dev libappindicator1 fonts-liberation \
- libasound2 libnspr4 libnss3 libxss1 xdg-utils mysql-server php7.3 php7.3-curl php7.3-imap php7.3-gd php7.3-mysql \
- php7.3-mbstring php7.3-zip php7.3-xml php7.3-bcmath php7.3-dev php7.3-intl php-pear php-xdebug libmcrypt-dev apache2
+ libasound2 libnspr4 libnss3 libxss1 xdg-utils dbus-x11 xfonts-base xfonts-100dpi xfonts-75dpi xfonts-cyrillic \
+ xfonts-scalable mysql-server php7.3 php7.3-curl php7.3-imap php7.3-gd php7.3-mysql php7.3-mbstring php7.3-zip \
+ php7.3-xml php7.3-bcmath php7.3-dev php7.3-intl php-pear php-xdebug libmcrypt-dev apache2
 
 # MySQL
 sed -i -e"s/^bind-address\s*=\s*127.0.0.1/bind-address = 0.0.0.0/" /etc/mysql/mysql.conf.d/mysqld.cnf
@@ -58,17 +59,30 @@ curl -sS https://getcomposer.org/installer | php
 mv composer.phar /usr/local/bin/composer
 chmod +x /usr/local/bin/composer
 
-# Chrome
+# Chrome & web driver
 cd ~
 wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
 dpkg -i google-chrome-stable_current_amd64.deb
 rm google-chrome-stable_current_amd64.deb
+CHROME_DRIVER=$(curl https://chromedriver.storage.googleapis.com/LATEST_RELEASE)
+wget https://chromedriver.storage.googleapis.com/$CHROME_DRIVER/chromedriver_linux64.zip
+unzip chromedriver_linux64.zip
+mkdir -p /vagrant/build/tmp
+mv chromedriver /vagrant/build/tmp
+chmod +x /vagrant/build/tmp/chromedriver
+rm chromedriver_linux64.zip
 
 # Setup SuiteCRM for testing
+cp /provision/.bash_aliases /home/vagrant/.bash_aliases
+chown vagrant:vagrant /home/vagrant/.bash_aliases
+sudo -u vagrant -i
+source /home/vagrant/.bash_aliases
 cd /vagrant
-rm -f config.php
+rm -f /vagrant/config.php
+cp /provision/test-env.custom.yml /vagrant/tests/_envs/custom.yml
 composer install
-./vendor/bin/robo chromedriver:install
-./vendor/bin/robo tests:install
+cp /provision/suitecrm-config_si.php /vagrant/config_si.php
+cp /provision/suitecrm-install_cli.php /vagrant/install_cli.php
+php install_cli.php
 mysql -uroot -proot -D automated_tests -v -e "source tests/_data/api_data.sql"
 mysql -uroot -proot -D automated_tests -v -e "source tests/_data/api_data.sql"
